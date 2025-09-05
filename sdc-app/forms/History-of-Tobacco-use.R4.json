@@ -1,0 +1,149 @@
+{
+  "resourceType": "Questionnaire",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/4.0/StructureDefinition/Questionnaire"
+    ]
+  },
+  "url": "http://iscfhir.com/forms/smoking",
+  "title": "History of Tobacco use",
+  "status": "draft",
+  "description": "This is a form to capture the smoking status of individuals",
+  "purpose": "Encourage healthly habits and lower health risk factors.",
+  "code": [
+    {
+      "system": "http://loinc.org",
+      "code": "11367-0",
+      "display": "History of Tobacco use"
+    }
+  ],
+  "item": [
+    {
+      "type": "choice",
+      "linkId": "928691875025",
+      "code": [
+        {
+          "system": "http://loinc.org",
+          "code": "63582-1",
+          "display": "Cigarette smoking current PhenX"
+        }
+      ],
+      "text": "Do you currently smoke cigarettes?",
+      "required": true,
+      "answerOption": [
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA14799-3",
+            "display": "Every day"
+          }
+        },
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA15776-0",
+            "display": "Some days"
+          }
+        },
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA6568-5",
+            "display": "Not at all"
+          }
+        },
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA15775-2",
+            "display": "Don't know/refused"
+          }
+        }
+      ],
+      "item": [
+        {
+          "linkId": "928691875025_helpText",
+          "type": "display",
+          "text": "Do you currently smoke cigarettes?",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+              "valueCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/questionnaire-item-control",
+                    "code": "help",
+                    "display": "Help-Button"
+                  }
+                ],
+                "text": "Help-Button"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "decimal",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+          "valueCoding": {
+            "system": "http://unitsofmeasure.org",
+            "code": "/d",
+            "display": "per day"
+          }
+        }
+      ],
+      "linkId": "608974165449",
+      "code": [
+        {
+          "system": "http://loinc.org",
+          "code": "64218-1",
+          "display": "How many cigarettes do you smoke per day now?"
+        }
+      ],
+      "text": "How many cigarettes do you smoke per day now?",
+      "enableWhen": [
+        {
+          "question": "928691875025",
+          "operator": "!=",
+          "answerCoding": {
+            "system": "http://loinc.org",
+            "code": "LA6568-5",
+            "display": "Not at all"
+          }
+        }
+      ],
+      "enableBehavior": "all",
+      "initial": [
+        {
+          "valueDecimal": 10
+        }
+      ]
+    },
+    {
+      "type": "decimal",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+          "valueCoding": {
+            "system": "http://unitsofmeasure.org",
+            "code": "a",
+            "display": "year"
+          }
+        }
+      ],
+      "linkId": "529023452708",
+      "code": [
+        {
+          "system": "http://loinc.org",
+          "code": "67740-1",
+          "display": "Age started smoking PhenX"
+        }
+      ],
+      "text": "Age started smoking PhenX",
+      "required": true
+    }
+  ]
+}

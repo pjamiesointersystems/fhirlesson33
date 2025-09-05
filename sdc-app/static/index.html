@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SDC – Questionnaire Viewer (Fiddle-style)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link href="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/webcomponent/styles.css"
+        rel="stylesheet" media="screen" />
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 20px; }
+    #formContainer { background: #fff; padding: 12px; border-radius: 8px; }
+    pre#output { background:#0e1729; color:#bfe1ff; padding:12px; border-radius:8px; overflow:auto; }
+    .toolbar { margin: 12px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;}
+    button { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+    input[type="text"] { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; min-width: 260px; }
+    .spacer { flex: 1 1 auto; }
+    .muted { color: #667; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>Structured Data Capture – Questionnaire Viewer</h1>
+
+  <div class="toolbar">
+    <input id="overrideName" type="text" placeholder="e.g., MyQuestionnaire.json" />
+    <button id="btn-load">Load</button>
+    <span class="spacer"></span>
+    <button id="btn-q-json">Show Questionnaire JSON</button>
+    <button id="btn-json">Show QuestionnaireResponse</button>
+    <button id="btn-submit">Submit to FHIR (via FastAPI)</button>
+    <button id="btn-hide" hidden>Hide JSON (Esc)</button>
+  </div>
+
+  <div id="formContainer"></div>
+  <pre id="output" hidden></pre>
+  <div class="muted" id="hint" style="margin-top:8px;"></div>
+
+  <script src="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/webcomponent/assets/lib/zone.min.js"></script>
+  <script src="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/webcomponent/lhc-forms.js"></script>
+  <script src="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/fhir/R4/lformsFHIR.min.js"></script>
+
+  <script>
+    const out = document.getElementById("output");
+    const hint = document.getElementById("hint");
+    const btnHide = document.getElementById("btn-hide");
+
+    // Keep track of whichever Questionnaire is currently rendered
+    let currentQuestionnaire = null;
+
+    // --- Output helpers ------------------------------------------------------
+    function show(text) {
+      out.hidden = false;
+      out.textContent = text;
+      btnHide.hidden = false;
+      hint.textContent = "Viewing JSON — click 'Hide JSON' or press Esc to return to the questionnaire.";
+      // Scroll JSON into view without jarring the form
+      out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    function hideOutput() {
+      out.hidden = true;
+      out.textContent = "";
+      btnHide.hidden = true;
+      hint.textContent = "";
+      // Bring form back into focus
+      document.getElementById("formContainer").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    btnHide.addEventListener("click", hideOutput);
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !out.hidden) hideOutput();
+    });
+
+    // --- Data load & render ---------------------------------------------------
+    async function getQuestionnaire(nameOverride) {
+      const params = new URLSearchParams(window.location.search);
+      const name = nameOverride || params.get("name");
+      const url = name ? `/api/form?name=${encodeURIComponent(name)}` : "/api/form";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function render(questionnaire) {
+      LForms.Util.addFormToPage(questionnaire, 'formContainer');
+      currentQuestionnaire = questionnaire;
+      hideOutput(); // ensure JSON panel is closed after re-render
+    }
+
+    function exportQR() {
+      return LForms.Util.getFormFHIRData("QuestionnaireResponse", "R4");
+    }
+
+    async function submitQR(qr) {
+      const res = await fetch("/api/fhir/QuestionnaireResponse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(qr)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    // Fallback Questionnaire if /api/form fails
+    const fallbackQ = {
+      resourceType: "Questionnaire",
+      status: "draft",
+      title: "Demo Form (Fallback)",
+      item: [{ type: "string", linkId: "X-002", text: "Eye color" }]
+    };
+
+    // --- Init after page load -------------------------------------------------
+    window.addEventListener("load", async () => {
+      try {
+        const q = await getQuestionnaire();
+        await render(q);
+      } catch (e) {
+        console.warn("Failed to load /api/form; rendering fallback Questionnaire.", e);
+        await render(fallbackQ);
+        show("Note: using fallback form because /api/form failed.\n" + e.message);
+      }
+
+      document.getElementById("btn-q-json").addEventListener("click", () => {
+        if (!currentQuestionnaire) {
+          show("No Questionnaire is loaded yet.");
+          return;
+        }
+        show(JSON.stringify(currentQuestionnaire, null, 2));
+      });
+
+      document.getElementById("btn-json").addEventListener("click", () => {
+        try { show(JSON.stringify(exportQR(), null, 2)); }
+        catch (e) { show("Could not export QuestionnaireResponse:\n" + e.message); }
+      });
+
+      document.getElementById("btn-submit").addEventListener("click", async () => {
+        try {
+          const resp = await submitQR(exportQR());
+          show("FHIR server response:\n" + JSON.stringify(resp, null, 2));
+        } catch (e) {
+          show("Submit error:\n" + e.message);
+        }
+      });
+
+      document.getElementById("btn-load").addEventListener("click", async () => {
+        const name = document.getElementById("overrideName").value.trim();
+        if (!name) { show("Enter a file name (e.g., MyQuestionnaire.json) or use ?name=…"); return; }
+        try {
+          const q = await getQuestionnaire(name);
+          await render(q);
+          show(`Loaded: ${name}`);
+        } catch (e) {
+          show("Load error:\n" + e.message);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+
+
