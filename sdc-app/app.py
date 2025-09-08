@@ -1,9 +1,12 @@
 
 import os
+import base64
+import httpx
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi import Request
 from dotenv import load_dotenv
 import json
 
@@ -14,13 +17,58 @@ FORMS_DIR = ROOT / "forms"   # <--- Put student-exported JSON files here
 load_dotenv()
 FHIR_BASE = os.getenv("FHIR_BASE", "http://localhost:8080/csp/healthshare/demo/fhir/r4")
 
+
+AUTH_HEADER = os.getenv("FHIR_AUTH_HEADER")
+if not AUTH_HEADER:
+    user = os.getenv("FHIR_BASIC_USER")
+    pwd = os.getenv("FHIR_BASIC_PASS")
+    if user and pwd:
+        b64 = base64.b64encode(f"{user}:{pwd}".encode("utf-8")).decode("ascii")
+        AUTH_HEADER = f"Basic {b64}"
+
+
 # NEW: which form to display by default (students change this per their file)
-FORM_FILE = os.getenv("FORM_FILE", "History-of-Tobacco-use.R4.json")
+FORM_FILE = os.getenv("FORM_FILE", "Smoking-Status.R4.json")
 
 app = FastAPI(title="SDC Demo Server", version="1.1.0")
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+def _target_url(path: str, query: str) -> str:
+    return f"{FHIR_BASE}/{path}{f'?{query}' if query else ''}"
+
+def _proxy_headers(orig_ct: str | None = None) -> dict:
+    # Force FHIR content types; you can relax this if you proxy other media.
+    h = {
+        "Accept": "application/fhir+json",
+        "Content-Type": orig_ct or "application/fhir+json",
+        "Prefer": "return=representation",  
+    }
+    if AUTH_HEADER:
+        h["Authorization"] = AUTH_HEADER
+    return h
+
+@app.get("/api/fhir/{path:path}")
+async def fhir_proxy_get(path: str, request: Request):
+    url = _target_url(path, str(request.query_params))
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(url, headers=_proxy_headers())
+    return Response(content=r.content, status_code=r.status_code,
+                    media_type=r.headers.get("content-type", "application/fhir+json"))
+
+@app.post("/api/fhir/{path:path}")
+async def fhir_proxy_post(path: str, request: Request):
+    url = _target_url(path, str(request.query_params))
+    body = await request.body()
+    # Use incoming content-type if present; default to FHIR JSON
+    orig_ct = request.headers.get("content-type", "application/fhir+json")
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.post(url, content=body, headers=_proxy_headers(orig_ct))
+    if r.status_code >= 400:
+        # Bubble up IRIS error body to the caller for easy debugging
+        raise HTTPException(status_code=r.status_code, detail=r.text)
+    return Response(content=r.content, status_code=r.status_code,
+                    media_type=r.headers.get("content-type", "application/fhir+json"))
 
 @app.get("/", response_class=HTMLResponse)
 async def root_index():

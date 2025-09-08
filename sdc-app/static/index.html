@@ -5,6 +5,7 @@
   <title>SDC – Questionnaire Viewer (Fiddle-style)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- LHC-Forms (webcomponent build) -->
   <link href="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/webcomponent/styles.css"
         rel="stylesheet" media="screen" />
 
@@ -28,7 +29,7 @@
     <span class="spacer"></span>
     <button id="btn-q-json">Show Questionnaire JSON</button>
     <button id="btn-json">Show QuestionnaireResponse</button>
-    <button id="btn-submit">Submit to FHIR (via FastAPI)</button>
+    <button id="btn-submit">Submit to IRIS FHIR</button>
     <button id="btn-hide" hidden>Hide JSON (Esc)</button>
   </div>
 
@@ -36,16 +37,26 @@
   <pre id="output" hidden></pre>
   <div class="muted" id="hint" style="margin-top:8px;"></div>
 
+  <!-- LHC-Forms scripts (same order as your working fiddle) -->
   <script src="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/webcomponent/assets/lib/zone.min.js"></script>
   <script src="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/webcomponent/lhc-forms.js"></script>
   <script src="https://lhcforms-static.nlm.nih.gov/lforms-versions/34.0.0/fhir/R4/lformsFHIR.min.js"></script>
 
   <script>
+    // ===== IRIS FHIR configuration (direct submit) =====
+    // If you prefer, you can move these into a small <meta> or a server-side template.
+    const FHIR_BASE = "http://127.0.0.1:8080/csp/healthshare/demo/fhir/r4";
+    const FHIR_HEADERS = {
+      "Authorization": "Basic _System:ISCDEMO",
+      "Accept": "*/*",
+      "Content-Type": "application/fhir+json"
+    };
+
     const out = document.getElementById("output");
     const hint = document.getElementById("hint");
     const btnHide = document.getElementById("btn-hide");
 
-    // Keep track of whichever Questionnaire is currently rendered
+    // Track the currently rendered Questionnaire (for Show Questionnaire JSON)
     let currentQuestionnaire = null;
 
     // --- Output helpers ------------------------------------------------------
@@ -54,7 +65,6 @@
       out.textContent = text;
       btnHide.hidden = false;
       hint.textContent = "Viewing JSON — click 'Hide JSON' or press Esc to return to the questionnaire.";
-      // Scroll JSON into view without jarring the form
       out.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
     function hideOutput() {
@@ -62,7 +72,6 @@
       out.textContent = "";
       btnHide.hidden = true;
       hint.textContent = "";
-      // Bring form back into focus
       document.getElementById("formContainer").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
@@ -84,22 +93,72 @@
     async function render(questionnaire) {
       LForms.Util.addFormToPage(questionnaire, 'formContainer');
       currentQuestionnaire = questionnaire;
-      hideOutput(); // ensure JSON panel is closed after re-render
+      hideOutput(); // close JSON pane after re-render
     }
 
     function exportQR() {
       return LForms.Util.getFormFHIRData("QuestionnaireResponse", "R4");
     }
 
-    async function submitQR(qr) {
-      const res = await fetch("/api/fhir/QuestionnaireResponse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(qr)
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+    // === Proxy submit to IRIS FHIR ==========================================
+    async function submitQRViaProxy(qr) {
+    const res = await fetch("/api/fhir/QuestionnaireResponse", {
+      method: "POST",
+      headers: { "Content-Type": "application/fhir+json" },
+      body: JSON.stringify(qr)
+    });
+
+    // If HTTP error, try to read the body (json or text) and throw a readable error
+    if (!res.ok) {
+      const errBody = await readBodySafely(res);
+      const detail = typeof errBody === "string" ? errBody : JSON.stringify(errBody, null, 2);
+      throw new Error(`${res.status} ${res.statusText}\n${detail}`);
     }
+
+    // Success: try to read JSON; if empty or non-JSON, fall back to text or follow Location
+    const body = await readBodySafely(res);
+    if (body !== null) return body;
+
+    // If no body, but server returned Location, fetch the created resource
+    const loc = res.headers.get("Location");
+    if (loc) {
+      const follow = await fetch(`/api/fhir/${stripBase(loc)}`, { method: "GET" });
+      const followBody = await readBodySafely(follow);
+      return { status: res.status, location: loc, resource: followBody };
+    }
+    // Nothing to show—return status only
+    return { status: res.status, note: "No response body returned by server." };
+  }
+
+  // Helper: parse JSON if available; else return text or null if empty
+  async function readBodySafely(res) {
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    // If there’s no content-length or it's explicitly 0, treat as empty
+    const len = res.headers.get("content-length");
+    if (len === "0") return null;
+
+    const text = await res.text();            // read once
+    if (!text) return null;                   // truly empty
+    if (ct.includes("json")) {
+      try { return JSON.parse(text); } catch { /* fall through to text */ }
+    }
+    // Not JSON or parse failed: return raw text
+    return text;
+  }
+
+  // Helper: if Location is absolute, strip the FHIR_BASE so we can call our proxy
+  function stripBase(locationUrl) {
+    try {
+      const u = new URL(locationUrl);
+      // Assume FHIR base path ends with /fhir/r4 ; keep the trailing path after that
+      // Adjust this if your IRIS base differs.
+      const idx = u.pathname.toLowerCase().lastIndexOf("/fhir/r4");
+      return idx >= 0 ? u.pathname.slice(idx + "/fhir/r4/".length) + (u.search || "") : u.pathname + (u.search || "");
+    } catch {
+      // Already relative
+      return locationUrl.replace(/^\//, "");
+    }
+  }
 
     // Fallback Questionnaire if /api/form fails
     const fallbackQ = {
@@ -134,13 +193,14 @@
       });
 
       document.getElementById("btn-submit").addEventListener("click", async () => {
-        try {
-          const resp = await submitQR(exportQR());
-          show("FHIR server response:\n" + JSON.stringify(resp, null, 2));
-        } catch (e) {
-          show("Submit error:\n" + e.message);
-        }
-      });
+    try {
+      const qr = LForms.Util.getFormFHIRData("QuestionnaireResponse", "R4");
+      const resp = await submitQRViaProxy(qr);
+      show("IRIS FHIR server response:\n" + JSON.stringify(resp, null, 2));
+    } catch (e) {
+      show("Submit error:\n" + e.message);
+    }
+  });
 
       document.getElementById("btn-load").addEventListener("click", async () => {
         const name = document.getElementById("overrideName").value.trim();
@@ -157,5 +217,3 @@
   </script>
 </body>
 </html>
-
-

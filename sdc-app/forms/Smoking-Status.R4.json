@@ -1,0 +1,193 @@
+{
+  "resourceType": "Questionnaire",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/4.0/StructureDefinition/Questionnaire"
+    ]
+  },
+  "url": "https://iscfhir.com/forms/smoking-status",
+  "title": "Smoking Status",
+  "status": "draft",
+  "description": "Capture a patient's smoking status",
+  "purpose": "Example form for InterSystems FHIR Training course",
+  "item": [
+    {
+      "type": "string",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/questionnaire-item-control",
+                "code": "radio-button",
+                "display": "Radio Button"
+              }
+            ]
+          }
+        }
+      ],
+      "linkId": "879190653462",
+      "text": "Have you ever smoked ?",
+      "required": true,
+      "repeats": false,
+      "answerOption": [
+        {
+          "valueString": "Yes"
+        },
+        {
+          "valueString": "No"
+        }
+      ]
+    },
+    {
+      "type": "choice",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/questionnaire-item-control",
+                "code": "drop-down",
+                "display": "Drop down"
+              }
+            ]
+          }
+        }
+      ],
+      "linkId": "713056989414",
+      "code": [
+        {
+          "system": "http://loinc.org",
+          "code": "63582-1",
+          "display": "Cigarette smoking current PhenX"
+        }
+      ],
+      "text": "Cigarette smoking current PhenX",
+      "enableWhen": [
+        {
+          "question": "879190653462",
+          "operator": "=",
+          "answerString": "Yes"
+        }
+      ],
+      "enableBehavior": "all",
+      "required": true,
+      "repeats": false,
+      "answerOption": [
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA14799-3",
+            "display": "Every day"
+          }
+        },
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA15776-0",
+            "display": "Some days"
+          }
+        },
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA6568-5",
+            "display": "Not at all"
+          }
+        },
+        {
+          "valueCoding": {
+            "system": "http://loinc.org",
+            "code": "LA15775-2",
+            "display": "Don't know/refused"
+          }
+        }
+      ]
+    },
+    {
+      "type": "decimal",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+          "valueCoding": {
+            "system": "http://unitsofmeasure.org",
+            "code": "/d",
+            "display": "per day"
+          }
+        }
+      ],
+      "linkId": "108563368017",
+      "code": [
+        {
+          "system": "http://loinc.org",
+          "code": "63858-5",
+          "display": "Cigarettes per D PhenX"
+        }
+      ],
+      "text": "Cigarettes per D PhenX",
+      "enableWhen": [
+        {
+          "question": "879190653462",
+          "operator": "=",
+          "answerString": "Yes"
+        }
+      ],
+      "enableBehavior": "all",
+      "required": true
+    },
+    {
+      "type": "decimal",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-unit",
+          "valueCoding": {
+            "system": "http://unitsofmeasure.org",
+            "code": "a",
+            "display": "year"
+          }
+        }
+      ],
+      "linkId": "909674371208",
+      "code": [
+        {
+          "system": "http://loinc.org",
+          "code": "67740-1",
+          "display": "Age started smoking PhenX"
+        }
+      ],
+      "text": "Age started smoking PhenX",
+      "enableWhen": [
+        {
+          "question": "879190653462",
+          "operator": "=",
+          "answerString": "Yes"
+        }
+      ],
+      "required": true,
+      "item": [
+        {
+          "linkId": "909674371208_helpText",
+          "type": "display",
+          "text": "age you tried or started using cigarettes",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+              "valueCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/questionnaire-item-control",
+                    "code": "help",
+                    "display": "Help-Button"
+                  }
+                ],
+                "text": "Help-Button"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "resourceType": "Questionnaire",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/4.0/StructureDefinition/Questionnaire"
+    ]
+  },
+  "url": "http://iscfhir.com/form/allergies",
+  "title": "Form to Capture Medication and Food Allergies",
+  "status": "draft",
+  "description": "Basic form for capturing medication and food allergies",
+  "purpose": "fhir training",
+  "item": [
+    {
+      "type": "string",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/questionnaire-item-control",
+                "code": "radio-button",
+                "display": "Radio Button"
+              }
+            ]
+          }
+        }
+      ],
+      "linkId": "614367049706",
+      "text": "Have you had any reactions to taking a medication?",
+      "required": true,
+      "answerOption": [
+        {
+          "valueString": "Yes"
+        },
+        {
+          "valueString": "No"
+        },
+        {
+          "valueString": "Unsure"
+        }
+      ]
+    },
+    {
+      "item": [
+        {
+          "type": "string",
+          "linkId": "752719302316",
+          "text": "Name of the medication",
+          "enableWhen": [
+            {
+              "question": "614367049706",
+              "operator": "=",
+              "answerString": "Yes"
+            }
+          ]
+        },
+        {
+          "type": "string",
+          "linkId": "462545613605",
+          "text": "What reaction did you have?",
+          "enableWhen": [
+            {
+              "question": "614367049706",
+              "operator": "=",
+              "answerString": "Yes"
+            }
+          ]
+        },
+        {
+          "linkId": "160983764208_helpText",
+          "type": "display",
+          "text": "To the best of your ability describe your reaction to the medication",
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl",
+              "valueCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "http://hl7.org/fhir/questionnaire-item-control",
+                    "code": "help",
+                    "display": "Help-Button"
+                  }
+                ],
+                "text": "Help-Button"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "group",
+      "linkId": "160983764208",
+      "text": "State the medication and observed reaction",
+      "enableWhen": [
+        {
+          "question": "614367049706",
+          "operator": "=",
+          "answerString": "Yes"
+        }
+      ],
+      "enableBehavior": "all",
+      "repeats": true
+    },
+    {
+      "type": "string",
+      "linkId": "147555767841",
+      "text": "Have you had any reactions to consuming a particular food?",
+      "required": true,
+      "answerOption": [
+        {
+          "valueString": "Yes"
+        },
+        {
+          "valueString": "No"
+        },
+        {
+          "valueString": "Unsure"
+        }
+      ],
+      "item": [
+        {
+          "type": "string",
+          "linkId": "743959761871",
+          "text": "Name the food or food group",
+          "enableWhen": [
+            {
+              "question": "147555767841",
+              "operator": "=",
+              "answerString": "Yes"
+            }
+          ]
+        },
+        {
+          "type": "string",
+          "linkId": "374954401752",
+          "text": "What reaction did you have?",
+          "enableWhen": [
+            {
+              "question": "147555767841",
+              "operator": "=",
+              "answerString": "Yes"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
