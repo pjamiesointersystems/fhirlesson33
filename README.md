@@ -160,4 +160,3 @@ FHIR Standard
 This project is licensed under the MIT License. See the LICENSE
  file for details.
 
-Would you like me to also include a workflow diagram (mermaid) showing how forms move from Form Builder → Viewer → FHIR Server → SQL Builder/Pandas for Lesson 33? That would visually reinforce the lab flow.
